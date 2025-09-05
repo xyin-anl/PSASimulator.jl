@@ -138,28 +138,46 @@ function save_simulation_data(traj, material_name, scenario_name, N)
     timestamp_dir = joinpath(scenario_dir, timestamp)
     mkpath(timestamp_dir)
     println("  Saving data to: $(timestamp_dir)")
+
     headers = ["Time"]
     append!(headers, ["P_Node$(i)" for i in 1:N+2])
     append!(headers, ["y_Node$(i)" for i in 1:N+2])
     append!(headers, ["x1_Node$(i)" for i in 1:N+2])
     append!(headers, ["x2_Node$(i)" for i in 1:N+2])
     append!(headers, ["T_Node$(i)" for i in 1:N+2])
+
     step_map = [
-        :a => "Co-current_Pressurization",
-        :b => "Adsorption",
-        :c => "Heavy_Reflux",
-        :d => "Counter-current_Depressurization",
-        :e => "Light_Reflux"
+        ("a_storage", "t1_storage", "1_Co-current_Pressurization"),
+        ("b_storage", "t2_storage", "2_Adsorption"),
+        ("c_storage", "t3_storage", "3_Heavy_Reflux"),
+        ("d_storage", "t4_storage", "4_Counter-current_Depressurization"),
+        ("e_storage", "t5_storage", "5_Light_Reflux")
     ]
 
-    for (i, (step_key, step_name)) in enumerate(step_map)
-        if haskey(traj, step_key)
-            data = traj[step_key]
-            time_key = Symbol("t$(Int(String(step_key)[1]) - 96)")
-            time = traj[time_key]
-            df = DataFrame(hcat(time, data), headers)
-            filename = "$(i)_$(step_name).csv"
-            CSV.write(joinpath(timestamp_dir, filename), df)
+    if !haskey(traj, :a_storage) || isempty(traj[:a_storage])
+        println("⚠️ Trajectory history not found in results. Nothing to save.")
+        return
+    end
+
+    num_cycles = length(traj[:a_storage])
+    println("  Found data for $(num_cycles) cycles.")
+
+    for cycle_idx in 1:num_cycles
+        cycle_dir = joinpath(timestamp_dir, "cycle_$(cycle_idx)")
+        mkpath(cycle_dir)
+
+        for (data_key, time_key, step_name) in step_map
+            data_storage = traj[Symbol(data_key)]
+            time_storage = traj[Symbol(time_key)]
+
+            if length(data_storage) >= cycle_idx && length(time_storage) >= cycle_idx
+                data = data_storage[cycle_idx]
+                time = time_storage[cycle_idx]
+                
+                df = DataFrame(hcat(time, data), headers)
+                filename = "$(step_name).csv"
+                CSV.write(joinpath(cycle_dir, filename), df)
+            end
         end
     end
 end
