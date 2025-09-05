@@ -54,7 +54,8 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
     x0::Union{Vector{<:Real},Nothing}=nothing,
     N::Int=10,
     it_disp::Bool=false,
-    run_type::Symbol=:ProcessEvaluation)
+    run_type::Symbol=:ProcessEvaluation,
+    max_iters::Int=700)
 
     # Initialize objectives and constraints
     objectives = [0.0, 0.0]
@@ -149,8 +150,8 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
         # Initialize statesIC for CSS check
         statesIC = nothing
 
-        # Main cyclic loop (700 iterations like MATLAB)
-        for i in 1:700
+        # Main cyclic loop
+        for i in 1:max_iters
             if it_disp
                 println("Iteration for CSS condition number: $i")
             end

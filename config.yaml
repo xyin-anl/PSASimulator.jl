@@ -1,0 +1,26 @@
+# ------------------------------------------------
+# PSA Simulator Configuration
+# ------------------------------------------------
+
+simulation_settings:
+    # Name of the material to be used in the simulation.
+    # This name must correspond to an entry in the run.jl script.
+    material_name: "Zeolite_13X"
+
+    # The name of the scenario, which determines the output folder name.
+    # For fault simulations, this could be e.g., "Adsorbent_Degradation_20_percent"
+    scenario_name: "Normal_Operation"
+
+    # The number of finite volumes to use for discretizing the column.
+    N: 10
+
+    # The maximum number of cycles to run before stopping if convergence is not met.
+    # 700 is the value used in the original MATLAB simulator.
+    max_iterations: 100
+
+# Configuration for fault injection.
+# We will build on this in the next steps.
+fault_injection:
+    enabled: false
+    type: None # e.g., Adsorbent_Degradation, Column_Leak, Stuck_Valve
+    parameters: {}

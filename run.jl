@@ -2,14 +2,13 @@
 # PSA SIMULATOR - STANDALONE RUN SCRIPT
 # ===================================================================
 #
-# This script is fully self-contained. It runs a single, defined 
-# PSA simulation and saves the results in an organized, timestamped 
-# output directory. It has no dependencies on the /demo folder.
+# This script runs a single PSA simulation based on settings
+# defined in the accompanying `config.yaml` file.
 #
 # ===================================================================
 
 println("\n" * "="^60)
-println(" PSA SIMULATOR - STANDALONE RUN ")
+println(" PSA SIMULATOR - CONFIGURABLE RUN ")
 println("="^60 * "\n")
 
 # ===================================================================
@@ -17,13 +16,15 @@ println("="^60 * "\n")
 # ===================================================================
 
 using Pkg
-# Activate the project environment
+# Activate the project environment and add YAML dependency if needed
 Pkg.activate(@__DIR__)
+Pkg.add("YAML")
 
 using PSASimulator
 using DataFrames
 using CSV
 using Dates
+using YAML
 
 println("✓ All modules loaded successfully")
 
@@ -181,11 +182,17 @@ end
 # ===================================================================
 
 function execute_simulation()
-    # --- 1. DEFINE SIMULATION PARAMETERS ---
-    N = 10  # Number of finite volumes
-    material_name = "Zeolite_13X"
-    scenario_name = "90%_Recovery_(Max_Purity)"
-    run_type = "ProcessEvaluation"
+    # --- 1. LOAD CONFIGURATION ---
+    config = YAML.load_file("config.yaml")
+    sim_settings = config["simulation_settings"]
+    fault_settings = config["fault_injection"]
+
+    # Extract parameters from config
+    N = sim_settings["N"]
+    material_name = sim_settings["material_name"]
+    scenario_name = sim_settings["scenario_name"]
+    max_iterations = sim_settings["max_iterations"]
+    run_type = "ProcessEvaluation" # This could also be in the config
 
     # --- Create Timestamped Directory ---
     timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
@@ -200,14 +207,25 @@ function execute_simulation()
         original_stdout = stdout
         redirect_stdout(log_file_stream)
         try
-            println("Setting up simulation for:")
-            println("  - Material: $(material_name)")
-            println("  - Scenario: $(scenario_name)\n")
+            println("="^60)
+            println(" PSA SIMULATOR RUN ")
+            println("="^60)
+            println("Timestamp: $(timestamp)")
+            println("\n--- SIMULATION CONFIGURATION ---")
+            for (key, value) in sim_settings
+                println("  $(key): $(value)")
+            end
+            println("\n--- FAULT INJECTION ---")
+            for (key, value) in fault_settings
+                println("  $(key): $(value)")
+            end
+            println("\n" * "="^60 * "\n")
+
 
             # --- 2. GET MATERIAL AND PROCESS VARIABLES ---
             material_properties, isotherm_params = get_material_data(material_name)
             material_data = (material_properties, isotherm_params)
-            opt_vars = get_opt_vars(material_name, "MaxPurity90")
+            opt_vars = get_opt_vars(material_name, "MaxPurity90") # This is still hardcoded
 
             process_vars = [
                 1.0,                                        # L [m]
@@ -222,7 +240,7 @@ function execute_simulation()
 
             # --- 3. RUN THE SIMULATION ---
             println("🚀 Running simulation... (This may take a moment)")
-            result = PSASimulator.psacycle(process_vars, material_data; N=N, run_type=Symbol(run_type), it_disp=true)
+            result = PSASimulator.psacycle(process_vars, material_data; N=N, run_type=Symbol(run_type), it_disp=true, max_iters=max_iterations)
 
             # --- 4. SAVE THE RESULTS ---
             if result.traj !== nothing

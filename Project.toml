@@ -12,6 +12,7 @@ OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
 CSV = "0.10.15"
@@ -19,4 +20,5 @@ DataFrames = "1"
 DifferentialEquations = "7"
 OrdinaryDiffEq = "6"
 PrettyTables = "2"
+YAML = "0.4.14"
 julia = "1.6"
