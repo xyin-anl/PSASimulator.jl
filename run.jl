@@ -126,17 +126,11 @@ function get_opt_vars(material_name, scenario_key)
     end
 end
 
-function save_simulation_data(traj, material_name, scenario_name, N)
+function save_simulation_data(traj, material_name, scenario_name, N, timestamp_dir)
     if traj === nothing
         println("⚠️ No trajectory data to save.")
         return
     end
-    timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
-    base_dir = "simulation_output"
-    material_dir = joinpath(base_dir, replace(material_name, r"[/: ]" => "_"))
-    scenario_dir = joinpath(material_dir, replace(scenario_name, r"[/: ]" => "_"))
-    timestamp_dir = joinpath(scenario_dir, timestamp)
-    mkpath(timestamp_dir)
     println("  Saving data to: $(timestamp_dir)")
 
     headers = ["Time"]
@@ -192,41 +186,65 @@ function execute_simulation()
     material_name = "Zeolite_13X"
     scenario_name = "90%_Recovery_(Max_Purity)"
     run_type = "ProcessEvaluation"
-    
-    println("Setting up simulation for:")
-    println("  - Material: $(material_name)")
-    println("  - Scenario: $(scenario_name)\n")
 
-    # --- 2. GET MATERIAL AND PROCESS VARIABLES ---
-    material_properties, isotherm_params = get_material_data(material_name)
-    material_data = (material_properties, isotherm_params)
-    opt_vars = get_opt_vars(material_name, "MaxPurity90")
+    # --- Create Timestamped Directory ---
+    timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
+    base_dir = "simulation_output"
+    material_dir = joinpath(base_dir, replace(material_name, r"[/: ]" => "_"))
+    scenario_dir = joinpath(material_dir, replace(scenario_name, r"[/: ]" => "_"))
+    timestamp_dir = joinpath(scenario_dir, timestamp)
+    mkpath(timestamp_dir)
 
-    process_vars = [
-        1.0,                                        # L [m]
-        opt_vars[1],                                # P_0 [Pa]
-        opt_vars[1] * opt_vars[4] / 8.314 / 313.15, # n_dot_0 [mol/s]
-        opt_vars[2],                                # t_ads [s]
-        opt_vars[3],                                # alpha [-]
-        opt_vars[5],                                # beta [-]
-        1.0e4,                                      # P_I [Pa]
-        opt_vars[6]                                 # P_l [Pa]
-    ]
+    log_file_path = joinpath(timestamp_dir, "simulation.log")
+    open(log_file_path, "w") do log_file_stream
+        original_stdout = stdout
+        redirect_stdout(log_file_stream)
+        try
+            println("Setting up simulation for:")
+            println("  - Material: $(material_name)")
+            println("  - Scenario: $(scenario_name)\n")
 
-    # --- 3. RUN THE SIMULATION ---
-    println("🚀 Running simulation... (This may take a moment)")
-    result = PSASimulator.psacycle(process_vars, material_data; N=N, run_type=Symbol(run_type), it_disp=true)
+            # --- 2. GET MATERIAL AND PROCESS VARIABLES ---
+            material_properties, isotherm_params = get_material_data(material_name)
+            material_data = (material_properties, isotherm_params)
+            opt_vars = get_opt_vars(material_name, "MaxPurity90")
 
-    # --- 4. SAVE THE RESULTS ---
-    if result.traj !== nothing
-        println("\n💾 Simulation finished. Saving data...")
-        save_simulation_data(result.traj, material_name, scenario_name, N)
-        println("\n" * "="^60)
-        println("✅ SIMULATION COMPLETE & DATA SAVED")
-        println("="^60 * "\n")
-    else
-        println("❌ SIMULATION FAILED. No data to save.")
+            process_vars = [
+                1.0,                                        # L [m]
+                opt_vars[1],                                # P_0 [Pa]
+                opt_vars[1] * opt_vars[4] / 8.314 / 313.15, # n_dot_0 [mol/s]
+                opt_vars[2],                                # t_ads [s]
+                opt_vars[3],                                # alpha [-]
+                opt_vars[5],                                # beta [-]
+                1.0e4,                                      # P_I [Pa]
+                opt_vars[6]                                 # P_l [Pa]
+            ]
+
+            # --- 3. RUN THE SIMULATION ---
+            println("🚀 Running simulation... (This may take a moment)")
+            result = PSASimulator.psacycle(process_vars, material_data; N=N, run_type=Symbol(run_type), it_disp=true)
+
+            # --- 4. SAVE THE RESULTS ---
+            if result.traj !== nothing
+                redirect_stdout(original_stdout) # Switch back to console for user messages
+                println("\n💾 Simulation finished. Saving data...")
+                save_simulation_data(result.traj, material_name, scenario_name, N, timestamp_dir)
+                println("\n" * "="^60)
+                println("✅ SIMULATION COMPLETE & DATA SAVED")
+                println("="^60 * "\n")
+            else
+                redirect_stdout(original_stdout)
+                println("❌ SIMULATION FAILED. No data to save.")
+            end
+        catch e
+            redirect_stdout(original_stdout)
+            println(stderr, "An error occurred during simulation: ", e)
+            showerror(stderr, e, catch_backtrace())
+        finally
+            redirect_stdout(original_stdout) # Ensure it's always restored
+        end
     end
+    println("✓ Simulation log saved to: $(log_file_path)")
 end
 
 # --- RUN THE SCRIPT ---
