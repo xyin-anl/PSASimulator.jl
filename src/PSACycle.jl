@@ -41,7 +41,7 @@ Main PSA cycle simulation function - faithful port of MATLAB PSACycle.m
 
 # Arguments
 - `vars::Vector`: Process variables [L, P_0, n_dot, t_ads, alpha, beta, P_I, P_l]
-- `material::Tuple`: Material properties (adsorption_data, isotherm_params)
+- `material::Tuple`: Material properties (adsorption_data, isotherm_par)
 - `x0::Union{Vector,Nothing}=nothing`: Initial conditions (auto-generated if nothing)
 - `N::Int=10`: Number of finite volumes
 - `it_disp::Bool=false`: Display iteration information
@@ -570,7 +570,7 @@ function process_evaluation(a, b, c, d, e, t1, t2, t3, t4, t5, Params)
     _, n_CO2_HR_HPEnd, _ = stream_composition_calculator(t3_dim, c, Params, "HPEnd")
     n_tot_CnC_HPEnd, n_CO2_CnC_HPEnd, _ = stream_composition_calculator(t4_dim, d, Params, "HPEnd")
     _, n_CO2_LR_LPEnd, _ = stream_composition_calculator(t5_dim, e, Params, "LPEnd")
-    n_tot_LR_HPEnd, n_CO2_LR_HPEnd, _ = stream_composition_calculator(t5_dim, e, Params, "HPEnd")
+    n_tot_LR_HPEnd, n_CO2_LR_HPEnd, _ = stream_composition_calculator(t5_dim, e, Params, "LPEnd")
 
     # Calculate purity, recovery, and mass balance
     purity = (n_CO2_CnC_HPEnd + (1 - beta) * n_CO2_LR_HPEnd) /
@@ -579,7 +579,7 @@ function process_evaluation(a, b, c, d, e, t1, t2, t3, t4, t5, Params)
     recovery = (n_CO2_CnC_HPEnd + (1 - beta) * n_CO2_LR_HPEnd) /
                (n_CO2_CoCPres_HPEnd + n_CO2_ads_HPEnd)
 
-    mass_balance = (n_CO2_CnC_HPEnd + n_CO2_ads_LPEnd + n_CO2_HR_LPEnd + n_CO2_LR_HPEnd) /
+    mass_balance = (n_CO2_CnC_HPEnd + n_CO2_ads_LPEnd + n_CO2_HR_LPEnd + n_CO2_LR_LPEnd) /
                    (n_CO2_CoCPres_HPEnd + n_CO2_ads_HPEnd + n_CO2_HR_HPEnd + n_CO2_LR_LPEnd)
 
     return purity, recovery, mass_balance
@@ -808,16 +808,16 @@ function vacuum_energy(time::AbstractVector, state_vars::AbstractMatrix, Patm::R
         P = state_vars[:, 1:2] .* P_0
         y = state_vars[:, N+3]
         T = state_vars[:, 4*N+9] .* T_0
-        ro_g = (y .* MW_CO2 .+ (1 .- y) .* MW_N2) .* P[:, 1] ./ R ./ T
+        ro_g = (y .* MW_CO2 .+ (1 .- y) .* MW_N2) * P[:, 1] ./ R ./ T
         P_out = P[:, 1]
     elseif ProductEnd == "LPEnd"
         P = state_vars[:, N+1:N+2] .* P_0
         y = state_vars[:, 2*N+4]
         T = state_vars[:, 5*N+10] .* T_0
-        ro_g = (y .* MW_CO2 .+ (1 .- y) .* MW_N2) .* P[:, 2] ./ R ./ T
+        ro_g = (y .* MW_CO2 .+ (1 .- y) .* MW_N2) * P[:, 2] ./ R ./ T
         P_out = P[:, 2]
     else
-        error("ProductEnd must be 'HPEnd' or 'LPEnd'")
+        error("CorrectionEnd must be 'HPEnd' or 'LPEnd'")
     end
 
     # Pressure gradient
