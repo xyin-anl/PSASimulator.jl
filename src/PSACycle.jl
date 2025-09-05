@@ -465,10 +465,10 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
         end
     end
 
-    # Return trajectory data (only latest cycle)
+    # Return trajectory data (all cycles)
     traj = Dict(
-        :a => a, :b => b, :c => c, :d => d, :e => e,
-        :t1 => t1, :t2 => t2, :t3 => t3, :t4 => t4, :t5 => t5,
+        :a_storage => a_storage, :b_storage => b_storage, :c_storage => c_storage, :d_storage => d_storage, :e_storage => e_storage,
+        :t1_storage => t1_storage, :t2_storage => t2_storage, :t3_storage => t3_storage, :t4_storage => t4_storage, :t5_storage => t5_storage,
         :purity => purity, :recovery => recovery, :mass_balance => MB
     )
 
