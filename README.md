@@ -6,9 +6,13 @@
 
 If you find this package helpful, please cite: [Yin, Xiangyu, and Chrysanthos E. Gounaris. "Computational discovery of Metal–Organic Frameworks for sustainable energy systems: Open challenges." Computers & Chemical Engineering 167 (2022): 108022.](https://www.sciencedirect.com/science/article/pii/S0098135422003568)
 
+[![CI](https://github.com/xyin-anl/PSASimulator.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/xyin-anl/PSASimulator.jl/actions/workflows/CI.yml)
+
+> **Status:** maintenance mode. Bug fixes and dependency updates are welcome; no new features are planned. Related open-source projects: [PSASimulator.py](https://github.com/amvro23/PSASimulator.py) (Python port of the same MATLAB simulator) and the differentiable JAX model of [Glover, Papathanasiou & Pini (2026)](https://arxiv.org/abs/2606.21523).
+
 ## Installation
 
-To install `PSASimulator.jl`, first ensure you have Julia 1.6 or higher installed. Then:
+Julia 1.10 or newer is required.
 
 ```julia
 using Pkg
@@ -23,16 +27,10 @@ Pkg.develop(url="https://github.com/xyin-anl/PSASimulator.jl")
 Pkg.develop(path="/path/to/local/PSASimulator.jl")
 ```
 
-Dependencies:
-- `LinearAlgebra`, `SparseArrays`, `Statistics` - Standard libraries
-- `DifferentialEquations.jl` - Tools for differential equations
-- `OrdinaryDiffEq.jl` - ODE solvers
-- `DataFrames.jl` - Data manipulation
-- `PrettyTables.jl` - Formatted output display
-
+Dependencies: `OrdinaryDiffEqBDF.jl` (stiff ODE solver), `ADTypes.jl`, and the `LinearAlgebra` and `SparseArrays` standard libraries.
 
 ## Basic Usage
-A high level interface `psacycle` is defined to run 5 steps modified Skarstrom Process easily.
+A high level interface `psacycle` runs the 5-step modified Skarstrom cycle (pressurization, adsorption, heavy reflux, counter-current depressurization, light reflux) until cyclic steady state.
 
 ```julia
 using PSASimulator
@@ -41,7 +39,7 @@ using PSASimulator
 process_vars = [
     L,      # Bed length [m]
     P_0,    # Feed pressure [Pa]
-    n_dot,  # Feed molar flow rate [mol/s]
+    n_dot,  # Inlet molar flux [mol/s/m^2]
     t_ads,  # Adsorption time [s]
     alpha,  # Light reflux ratio [-]
     beta,   # Heavy reflux ratio [-]
@@ -56,39 +54,39 @@ material = (material_properties, isotherm_params)
 result = psacycle(process_vars, material;
     N = 10,                           # Number of finite volumes
     run_type = :ProcessEvaluation,    # or :EconomicEvaluation
+    y0 = 0.15,                        # CO₂ mole fraction in the feed
     it_disp = true                    # Display iteration progress
 )
 ```
 
-The simulation returns a results object containing:
-- `objectives`: Performance metrics (purity, recovery, productivity, energy)
+The simulation returns a named tuple with:
+- `objectives`: `[-purity, -recovery]` for `:ProcessEvaluation`, or `[-productivity, energy]` for `:EconomicEvaluation`. Productivity is in mol CO₂/kg adsorbent/s and energy in kWh/tonne CO₂, as in the MATLAB code.
 - `constraints`: Constraint violations for optimization
-- `state_vars`: Final state of all variables
-- `performance`: Detailed performance metrics
+- `traj`: Trajectories of the last cycle (`:a` to `:e` for the five steps, `:t1` to `:t5` for their dimensionless times) plus `:purity`, `:recovery` and `:mass_balance`
 
 ## Demo
 
-A comprehensive demo is provided in the `demo/` directory that validates the simulator against literature data from [Yancy-Caballero et al. (2020)](https://pubs.rsc.org/en/content/articlelanding/2020/me/d0me00060d).
-
-To run the demo:
+The `demo/` directory evaluates the 16 adsorbents of [Yancy-Caballero et al. (2020)](https://pubs.rsc.org/en/content/articlelanding/2020/me/d0me00060d) at the optimal operating points reported in that paper. It uses its own environment (`demo/Project.toml`) with `DataFrames.jl` and `PrettyTables.jl`:
 
 ```bash
 cd demo
 julia demo_psa_simulator.jl
 ```
 
-Note: The demo script automatically activates the parent project to ensure all dependencies are available.
-
-The demo tests four simulation scenarios:
+The demo covers four scenarios:
 1. Maximized purity with 90% CO₂ recovery constraint
 2. Maximized purity with 95% CO₂ recovery constraint
-3. Maximized CO₂ productivity [mol/kg/hr]
+3. Maximized CO₂ productivity
 4. Minimized energy consumption [kWh/ton CO₂]
 
 The demo includes 16 different adsorbent materials:
 - Metal-Organic Frameworks (MOFs): Co-MOF-74, Cu-BTTri, Mg-MOF-74, MOF-177, etc.
 - Zeolites: Zeolite 13X
 - Other porous materials: ZIF-8, SIFSIX series
+
+## Validation and Tests
+
+The test suite (`julia --project -e 'using Pkg; Pkg.test()'`) runs all 48 demo cases and compares them with the original MATLAB code run under GNU Octave 10.3 (`test/matlab_reference/`). Purity and recovery agree within 1e-3 (within 2.2e-4 for 47 of the 48 cases; the exception is the slowly converging SIFSIX-3-Ni case), and productivity and energy agree within 0.05% relative. The remaining differences come from the different stiff integrators (`ode15s` vs `QNDF`) and the cyclic steady state tolerance. A demo case takes 1 to 3 s in Julia and 2 to 30 min with the MATLAB code in Octave.
 
 ## Mathematical Model
 
@@ -169,6 +167,6 @@ The simulator models six process steps, each with specific boundary conditions:
 
 The PDEs are solved using:
 - **Spatial discretization**: Finite volume method with WENO (Weighted Essentially Non-Oscillatory) schemes
-- **Temporal integration**: Adaptive ODE solvers from `DifferentialEquations.jl`
+- **Temporal integration**: `QNDF` stiff solver from `OrdinaryDiffEqBDF.jl` with sparse finite-difference Jacobians
 
 The simulator iterates through cycles until the state variables at the beginning and end of a cycle converge, indicating cyclic steady state has been reached.
