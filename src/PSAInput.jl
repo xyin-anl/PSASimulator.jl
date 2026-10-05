@@ -6,7 +6,7 @@ export process_input_parameters
 
 """
     process_input_parameters(process_vars, material, N;
-                             feed_gas = "Constant Velocity")
+                             feed_gas = "Constant Velocity", y0 = 0.15)
 
 Translate the MATLAB routine *ProcessInputParameters*.
 
@@ -18,6 +18,7 @@ Translate the MATLAB routine *ProcessInputParameters*.
 - `N`            : integer – number of finite volumes
 - `feed_gas`     : `"Constant Pressure"` or `"Constant Velocity"`  
       (defaults to the latter, matching the MATLAB file)
+- `y0`           : CO₂ mole fraction in the feed (default 0.15, as in MATLAB)
 
 # Returns
 (Params          ::Vector{Float64},   # length 39
@@ -30,7 +31,8 @@ All numeric results are `Float64`, matching MATLAB's default.
 function process_input_parameters(process_vars::AbstractVector,
       material::Tuple,
       N::Integer;
-      feed_gas::AbstractString="Constant Velocity")
+      feed_gas::AbstractString="Constant Velocity",
+      y0::Real=0.15)
 
       @assert length(process_vars) == 8 "process_vars must have length 8"
       L, P₀, ṅ₀, t_ads, α, β, P_I, P_l = Float64.(process_vars)
@@ -44,7 +46,8 @@ function process_input_parameters(process_vars::AbstractVector,
       # ─────────────────────────────────────────────────────────────────────
       R = 8.314             # J mol⁻¹ K⁻¹
       T₀ = 313.15            # K
-      y₀ = 0.15
+      y₀ = Float64(y0)
+      0 < y₀ < 1 || throw(ArgumentError("y0 must be in (0, 1), got $y0"))
       Ctot₀ = P₀ / R / T₀
       v₀ = ṅ₀ / Ctot₀
       μ = 1.72e-5           # Pa·s

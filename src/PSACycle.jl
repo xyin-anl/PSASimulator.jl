@@ -13,29 +13,19 @@ module PSACycleDriver
 #  convergence criteria, and post-processing.
 # =============================================================================
 
-using DifferentialEquations
+using ADTypes: AutoFiniteDiff
 using LinearAlgebra
-using Statistics
-using OrdinaryDiffEq
+using OrdinaryDiffEqBDF
 using SparseArrays
 
-# Get the directory of this file (src/)
-const SRC_DIR = dirname(@__FILE__)
-
-# Import required modules
-include(joinpath(SRC_DIR, "PSAInput.jl"))
-using .PSAInput
-
-include(joinpath(SRC_DIR, "PSAUtils.jl"))
-using .PSAUtils
-
-include(joinpath(SRC_DIR, "StepModels.jl"))
-using .StepModels
+using ..PSAInput
+using ..PSAUtils
+using ..StepModels
 
 export psacycle
 
 """
-    psacycle(vars, material; x0=nothing, N=10, it_disp=false, run_type=:ProcessEvaluation)
+    psacycle(vars, material; x0=nothing, N=10, it_disp=false, run_type=:ProcessEvaluation, y0=0.15)
 
 Main PSA cycle simulation function - faithful port of MATLAB PSACycle.m
 
@@ -46,6 +36,7 @@ Main PSA cycle simulation function - faithful port of MATLAB PSACycle.m
 - `N::Int=10`: Number of finite volumes
 - `it_disp::Bool=false`: Display iteration information
 - `run_type::Symbol=:ProcessEvaluation`: :ProcessEvaluation or :EconomicEvaluation
+- `y0::Real=0.15`: CO2 mole fraction in the feed (CO2/N2 binary)
 
 # Returns
 - Named tuple with objectives, constraints, and trajectory data
@@ -54,14 +45,15 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
     x0::Union{Vector{<:Real},Nothing}=nothing,
     N::Int=10,
     it_disp::Bool=false,
-    run_type::Symbol=:ProcessEvaluation)
+    run_type::Symbol=:ProcessEvaluation,
+    y0::Real=0.15)
 
     # Initialize objectives and constraints
     objectives = [0.0, 0.0]
     constraints = [0.0, 0.0, 0.0]
 
     # Process input parameters (matching MATLAB exactly)
-    ip = process_input_parameters(vars, material, N)
+    ip = process_input_parameters(vars, material, N; y0=y0)
     Params = ip.Params
     IsothermParams = ip.IsothermParams
     Times = ip.Times
@@ -125,17 +117,8 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
         :abstol => 1e-6   # Match MATLAB tolerances
     )
 
-    # Storage for trajectory data (matching MATLAB)
-    a_storage = []
-    b_storage = []
-    c_storage = []
-    d_storage = []
-    e_storage = []
-    t1_storage = []
-    t2_storage = []
-    t3_storage = []
-    t4_storage = []
-    t5_storage = []
+    # Trajectory of the most recent cycle (only the last cycle is evaluated)
+    last_cycle = nothing
 
     # Storage for final conditions analysis
     a_fin = []
@@ -168,7 +151,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
 
             f1 = ODEFunction(rhs1; jac_prototype=jac1)
             prob1 = ODEProblem(f1, x0, (0.0, tau_CoCPres))
-            sol1 = solve(prob1, QNDF(autodiff=false);  # Use efficient stiff solver without autodiff
+            sol1 = solve(prob1, QNDF(autodiff=AutoFiniteDiff());  # Finite-difference Jacobian on the sparsity pattern
                 reltol=ode_opts[:reltol],
                 abstol=ode_opts[:abstol],
                 maxiters=1e5)
@@ -209,7 +192,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
 
             f2 = ODEFunction(rhs2; jac_prototype=jac2)
             prob2 = ODEProblem(f2, x10, (0.0, tau_ads))
-            sol2 = solve(prob2, QNDF(autodiff=false);  # Use efficient stiff solver without autodiff
+            sol2 = solve(prob2, QNDF(autodiff=AutoFiniteDiff());  # Finite-difference Jacobian on the sparsity pattern
                 reltol=ode_opts[:reltol],
                 abstol=ode_opts[:abstol],
                 maxiters=1e5)
@@ -261,7 +244,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
 
             f3 = ODEFunction(rhs3; jac_prototype=jac3)
             prob3 = ODEProblem(f3, x20, (0.0, tau_HR))
-            sol3 = solve(prob3, QNDF(autodiff=false);  # Use efficient stiff solver without autodiff
+            sol3 = solve(prob3, QNDF(autodiff=AutoFiniteDiff());  # Finite-difference Jacobian on the sparsity pattern
                 reltol=ode_opts[:reltol],
                 abstol=ode_opts[:abstol],
                 maxiters=1e5)
@@ -305,7 +288,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
 
             f4 = ODEFunction(rhs4; jac_prototype=jac4)
             prob4 = ODEProblem(f4, x30, (0.0, tau_CnCDepres))
-            sol4 = solve(prob4, QNDF(autodiff=false);  # Use efficient stiff solver without autodiff
+            sol4 = solve(prob4, QNDF(autodiff=AutoFiniteDiff());  # Finite-difference Jacobian on the sparsity pattern
                 reltol=ode_opts[:reltol],
                 abstol=ode_opts[:abstol],
                 maxiters=1e5)
@@ -342,7 +325,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
 
             f5 = ODEFunction(rhs5; jac_prototype=jac5)
             prob5 = ODEProblem(f5, x40, (0.0, tau_LR))
-            sol5 = solve(prob5, QNDF(autodiff=false);  # Use efficient stiff solver without autodiff
+            sol5 = solve(prob5, QNDF(autodiff=AutoFiniteDiff());  # Finite-difference Jacobian on the sparsity pattern
                 reltol=ode_opts[:reltol],
                 abstol=ode_opts[:abstol],
                 maxiters=1e5)
@@ -384,16 +367,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
             x0[5*N+10] = x0[5*N+9]
 
             # Store trajectory data
-            push!(a_storage, a)
-            push!(b_storage, b)
-            push!(c_storage, c)
-            push!(d_storage, d)
-            push!(e_storage, e)
-            push!(t1_storage, t1)
-            push!(t2_storage, t2)
-            push!(t3_storage, t3)
-            push!(t4_storage, t4)
-            push!(t5_storage, t5)
+            last_cycle = (a, b, c, d, e, t1, t2, t3, t4, t5)
 
             #= ============================================================
             Cyclic Steady State (CSS) Check - Matching MATLAB exactly
@@ -432,10 +406,7 @@ function psacycle(vars::Vector{<:Real}, material::Tuple;
     ================================================================ =#
 
     # Use last cycle for evaluation
-    a, b, c, d, e = a_storage[end], b_storage[end], c_storage[end],
-    d_storage[end], e_storage[end]
-    t1, t2, t3, t4, t5 = t1_storage[end], t2_storage[end], t3_storage[end],
-    t4_storage[end], t5_storage[end]
+    a, b, c, d, e, t1, t2, t3, t4, t5 = last_cycle
 
     purity, recovery, MB = process_evaluation(a, b, c, d, e, t1, t2, t3, t4, t5, Params)
 
