@@ -87,7 +87,8 @@ const ECONOMIC_MATERIALS = [
 # ===================================================================
 # OPTIMIZATION VARIABLES
 # ===================================================================
-# Format: [P_0, t_ads, alpha, beta, gamma, P_l] for each material
+# Format: [P_0 [Pa], t_ads [s], alpha [-], v_0 [m/s], beta [-], P_l [Pa]] for each material,
+# mapped to process variables as in PSACycleSimulation.m
 
 # Table S4: Process optimization (max purity, 90% CO2 recovery)
 const OPT_VARS_PURITY = [

@@ -17,9 +17,7 @@ module FuncHeavyRefluxModule
 
 using LinearAlgebra
 
-# Include PSAUtils module
-include("PSAUtils.jl")
-using .PSAUtils
+using ...PSAUtils
 
 export FuncHeavyReflux
 

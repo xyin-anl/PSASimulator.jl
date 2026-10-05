@@ -1,21 +1,24 @@
 name = "PSASimulator"
 uuid = "eab7f6fe-1ad6-4d68-9f3e-0f59499d4d38"
 authors = ["Xiangyu Yin"]
-version = "0.0.1"
+version = "0.1.0"
 
 [deps]
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
+ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
-PrettyTables = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+OrdinaryDiffEqBDF = "6ad6398a-0878-4a85-9266-38940aa047c8"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
-julia = "1.6"
-DataFrames = "1"
-DifferentialEquations = "7"
-OrdinaryDiffEq = "6"
-PrettyTables = "2"
+ADTypes = "1"
+LinearAlgebra = "1"
+OrdinaryDiffEqBDF = "1.26, 2"
+SparseArrays = "1"
+Test = "1"
+julia = "1.10"
 
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

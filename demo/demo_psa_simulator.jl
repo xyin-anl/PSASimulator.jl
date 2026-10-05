@@ -24,18 +24,10 @@ println("="^60 * "\n")
 # ===================================================================
 
 using Pkg
-# Activate the parent project (PSASimulator)
-parent_dir = dirname(@__DIR__)
-Pkg.activate(parent_dir)
-
-# Add required packages if not already installed
-required_packages = ["DataFrames", "PrettyTables", "Statistics"]
-for pkg in required_packages
-    if !(pkg in keys(Pkg.project().dependencies))
-        println("Installing $pkg...")
-        Pkg.add(pkg)
-    end
-end
+# Use the demo environment, with PSASimulator taken from this checkout
+Pkg.activate(@__DIR__)
+Pkg.develop(path=dirname(@__DIR__); io=devnull)
+Pkg.instantiate()
 
 using PSASimulator
 using DataFrames
@@ -61,7 +53,7 @@ include("demo_data.jl")
 Run a single PSA simulation with the given optimization variables and material.
 
 # Arguments
-- `opt_vars`: Vector of optimization variables [P_0, t_ads, alpha, beta, gamma, P_l]
+- `opt_vars`: Vector of optimization variables [P_0, t_ads, alpha, v_0, beta, P_l]
 - `material_data`: Tuple of (material_properties, isotherm_parameters)
 - `run_type`: Either "ProcessEvaluation" or "EconomicEvaluation"
 - `N`: Number of discretization points
@@ -212,7 +204,7 @@ function display_scenario_summary(scenario_name, results_df, run_type)
     else
         summary_df = select(results_df, :Material, :Productivity, :Energy)
         pretty_table(summary_df,
-            header=["Material", "Productivity [mol/kg/hr]", "Energy [kWh/ton CO₂]"],
+            header=["Material", "Productivity [mol/kg/s]", "Energy [kWh/ton CO₂]"],
             formatters=(ft_printf("%.4f", 2), ft_printf("%.2f", 3)),
             alignment=[:l, :r, :r],
             crop=:none)

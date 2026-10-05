@@ -10,12 +10,7 @@ module FuncAdsorptionModule
 #      dx = FuncAdsorption(t, x, Params, IsothermPar)
 # =============================================================================
 
-# Get the directory of this file (src/)
-const SRC_DIR = dirname(@__FILE__)
-
-# Include PSAUtils directly
-include(joinpath(SRC_DIR, "PSAUtils.jl"))
-using .PSAUtils
+using ...PSAUtils
 
 export FuncAdsorption
 

@@ -17,9 +17,7 @@ module FuncCoCPressurizationModule
 
 using LinearAlgebra
 
-# Include PSAUtils module
-include("PSAUtils.jl")
-using .PSAUtils
+using ...PSAUtils
 
 export FuncCoCPressurization
 
